@@ -5,7 +5,11 @@ from homeassistant.core import Event
 from homeassistant.helpers.entity import DeviceInfo, Entity
 
 from . import DOMAIN
-from .const import EVENT_DEVICE_CONTROL, EVENT_DEVICE_DATA_CHANGED, EVENT_GATEWAY_STATUS_CHANGED
+from .const import (
+    EVENT_DEVICE_CONTROL,
+    EVENT_DEVICE_DATA_CHANGED,
+    EVENT_DEVICE_STATUS_CHANGED,
+)
 from .core.attribute import TreeowAttribute
 from .core.device import TreeowDevice
 from .core.event import listen_event, fire_event
@@ -24,6 +28,7 @@ class TreeowAbstractEntity(Entity, ABC):
         self.entity_id = f'{attribute.platform}.{self._attr_unique_id}'
         self._attr_name = attribute.display_name
         self._attr_should_poll = False
+        self._attr_available = device.available
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, self._device_id)},
             name=device.name,
@@ -53,10 +58,14 @@ class TreeowAbstractEntity(Entity, ABC):
     async def async_added_to_hass(self) -> None:
         """Optimized entity setup with efficient event handling."""
         def status_callback(event):
+            if event.data['deviceId'] != self._device_id:
+                return
             self._attr_available = event.data['status']
             self.schedule_update_ha_state()
         
-        self._listen_cancel.append(listen_event(self.hass, EVENT_GATEWAY_STATUS_CHANGED, status_callback))
+        self._listen_cancel.append(
+            listen_event(self.hass, EVENT_DEVICE_STATUS_CHANGED, status_callback)
+        )
 
         def data_callback(event):
             event_data = event.data
@@ -64,6 +73,7 @@ class TreeowAbstractEntity(Entity, ABC):
                 return
             
             self._attributes_data = event_data['attributes']
+            self._attr_available = self._device.available
             self._update_value()
             self.schedule_update_ha_state()
 

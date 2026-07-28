@@ -15,7 +15,7 @@ from custom_components.treeow import const
 from custom_components.treeow.const import (
     EVENT_DEVICE_CONTROL,
     EVENT_DEVICE_DATA_CHANGED,
-    EVENT_GATEWAY_STATUS_CHANGED,
+    EVENT_DEVICE_STATUS_CHANGED,
     DEFAULT_APP_VERSION,
     DEFAULT_IOS_VERSION
 )
@@ -363,6 +363,8 @@ class TreeowClient:
                 data = content.get('data')
                 if not data:
                     return {}, []
+
+                device.observe_poll_payload(data)
                 
                 # Parse device data
                 props = data.get('props', [])
@@ -435,9 +437,6 @@ class TreeowClient:
 
             cancel_control_listen = listen_event(self._hass, EVENT_DEVICE_CONTROL, control_callback)
             
-            # Signal gateway is online
-            fire_event(self._hass, EVENT_GATEWAY_STATUS_CHANGED, {'status': True})
-
             # Generate headers once before loop (token refresh will reload integration)
             headers = await self._generate_common_headers()
 
@@ -450,7 +449,7 @@ class TreeowClient:
                         task = self._poll_device(device, headers)
                         tasks.append(task)
                     
-                    await asyncio.gather(*tasks, return_exceptions=True)
+                    await asyncio.gather(*tasks)
                     await asyncio.sleep(poll_interval)
                     
                     # Reset retry delay on successful operation
@@ -478,10 +477,14 @@ class TreeowClient:
                 except asyncio.CancelledError:
                     pass
                     
-            # Signal gateway is offline
             current_process = self._hass.data.get('current_listen_devices_process_id')
             if process_id == current_process:
-                fire_event(self._hass, EVENT_GATEWAY_STATUS_CHANGED, {'status': False})
+                for device in target_devices:
+                    if device.force_unavailable():
+                        self._publish_device_availability(
+                            device,
+                            reason='listener stopped',
+                        )
 
     async def _poll_device(self, device: TreeowDevice, headers: Dict[str, str]) -> None:
         """Helper method to poll a single device."""
@@ -491,11 +494,46 @@ class TreeowClient:
                 content = await response.json(content_type=None)
                 self._assert_response_successful(content)
                 
-                if content.get('data'):
-                    await self._parse_message(device, content['data'])
+                data = content.get('data')
+                if not data:
+                    raise TreeowClientException('Device response did not contain data')
+
+                if device.observe_poll_payload(data):
+                    self._publish_device_availability(
+                        device,
+                        reason=f'cloud status={data.get("status")}',
+                    )
+
+                await self._parse_message(device, data)
                     
         except Exception as e:
+            if device.observe_poll_failure():
+                self._publish_device_availability(
+                    device,
+                    reason=(
+                        f'{device.consecutive_poll_failures} consecutive '
+                        'poll failures'
+                    ),
+                )
             _LOGGER.error(f'Failed to poll device {device.id}: {e}')
+
+    def _publish_device_availability(
+            self,
+            device: TreeowDevice,
+            *,
+            reason: str
+    ) -> None:
+        """Publish one device's availability transition."""
+        _LOGGER.info(
+            'Device %s availability changed to %s (%s)',
+            device.id,
+            device.available,
+            reason,
+        )
+        fire_event(self._hass, EVENT_DEVICE_STATUS_CHANGED, {
+            'deviceId': str(device.id),
+            'status': device.available,
+        })
 
     async def _send_heartbeat(self, device: TreeowDevice, event: threading.Event) -> None:
         """Optimized heartbeat sending with fast retry on failure."""

@@ -9,7 +9,7 @@ from custom_components.treeow import DOMAIN
 from custom_components.treeow.const import (
     EVENT_DEVICE_CONTROL,
     EVENT_DEVICE_DATA_CHANGED,
-    EVENT_GATEWAY_STATUS_CHANGED
+    EVENT_DEVICE_STATUS_CHANGED
 )
 
 _LOGGER = logging.getLogger(__name__)

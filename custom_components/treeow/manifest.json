@@ -2,15 +2,15 @@
   "domain": "treeow",
   "name": "Treeow",
   "codeowners": [
-    "@tuzkiyoung"
+    "@wangty163"
   ],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/tuzkiyoung/treeow",
+  "documentation": "https://github.com/wangty163/treeow",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/tuzkiyoung/treeow/issues",
+  "issue_tracker": "https://github.com/wangty163/treeow/issues",
   "quality_scale": "silver",
   "requirements": [],
-  "version": "1.0.5"
+  "version": "1.0.6"
 }

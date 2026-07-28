@@ -40,17 +40,14 @@ class TreeowSwitch(TreeowAbstractEntity, SwitchEntity):
         """Optimized value update with better error handling."""
         value = self._attributes_data.get(self._attr_key)
         if value is None:
-            self._attr_is_on = False
+            self._attr_is_on = None
             return
             
         try:
             self._attr_is_on = try_read_as_bool(value)
-            # Reset availability if previously failed
-            if not self._attr_available:
-                self._attr_available = True
         except ValueError:
             _LOGGER.warning(f'Switch [{self._attr_unique_id}] failed to read value: {value}')
-            self._attr_available = False
+            self._attr_is_on = None
 
     def turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on."""
@@ -63,4 +60,3 @@ class TreeowSwitch(TreeowAbstractEntity, SwitchEntity):
         if not self._attr_is_on:
             return
         self._send_command({self._attr_key: False})
-
