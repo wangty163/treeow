@@ -84,26 +84,28 @@ class TreeowFan(TreeowAbstractEntity, FanEntity):
             self._attr_preset_modes = self._mode_options
 
     @property
-    def is_on(self) -> bool:
+    def is_on(self) -> Optional[bool]:
         switch_key = self._switch_key or self._attr_key
         value = self._attributes_data.get(switch_key)
         
         if value is None:
-            return False
+            return None
         
         try:
             return try_read_as_bool(value)
         except ValueError:
-            return False
+            return None
     
     @property
     def percentage(self) -> Optional[int]:
+        if self.is_on is None:
+            return None
         if not self.is_on or not self._speed_key or not self._speed_options:
             return 0
         
         speed_value = self._attributes_data.get(self._speed_key)
         if speed_value is None:
-            return 0
+            return None
         
         display_value = self._speed_comparison_table.get(speed_value)
         if display_value and display_value in self._speed_options:

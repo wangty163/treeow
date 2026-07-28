@@ -3,6 +3,7 @@ import logging
 from typing import List
 
 from .attribute import TreeowAttribute, V1SpecAttributeParser
+from .availability import DeviceAvailabilityTracker
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -10,14 +11,24 @@ _LOGGER = logging.getLogger(__name__)
 class TreeowDevice:
     """Optimized TreeowDevice with manual caching for better __slots__ compatibility."""
     
-    __slots__ = ('_client', '_raw_data', '_attributes', '_attribute_snapshot_data', 
-                 '_device_dict_cache', '_cached_id', '_cached_name', '_cached_category')
+    __slots__ = (
+        '_client',
+        '_raw_data',
+        '_attributes',
+        '_attribute_snapshot_data',
+        '_availability',
+        '_device_dict_cache',
+        '_cached_id',
+        '_cached_name',
+        '_cached_category',
+    )
 
     def __init__(self, client, raw: dict):
         self._client = client
         self._raw_data = raw
         self._attributes = []
         self._attribute_snapshot_data = {}
+        self._availability = DeviceAvailabilityTracker(raw)
         self._device_dict_cache = None
         
         # Initialize cache attributes
@@ -91,6 +102,28 @@ class TreeowDevice:
     def attribute_snapshot_data(self) -> dict:
         """Direct access to snapshot data."""
         return self._attribute_snapshot_data
+
+    @property
+    def available(self) -> bool:
+        """Return whether the cloud confirms that the device is online."""
+        return self._availability.available
+
+    @property
+    def consecutive_poll_failures(self) -> int:
+        """Return the current consecutive poll failure count."""
+        return self._availability.consecutive_failures
+
+    def observe_poll_payload(self, payload: dict) -> bool:
+        """Apply a successful device payload and report a status transition."""
+        return self._availability.observe_payload(payload)
+
+    def observe_poll_failure(self) -> bool:
+        """Apply a failed poll and report a status transition."""
+        return self._availability.observe_failure()
+
+    def force_unavailable(self) -> bool:
+        """Force the device unavailable and report a status transition."""
+        return self._availability.force_unavailable()
 
     async def async_init(self):
         """Optimized initialization with better error handling."""

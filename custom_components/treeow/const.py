@@ -43,7 +43,7 @@ STORAGE_KEY = "treeow"
 # Event Constants
 EVENT_DEVICE_CONTROL = 'device_control'
 EVENT_DEVICE_DATA_CHANGED = 'device_data_changed'
-EVENT_GATEWAY_STATUS_CHANGED = 'gateway_status_changed'
+EVENT_DEVICE_STATUS_CHANGED = 'device_status_changed'
 
 # Token Management Constants
 TOKEN_CHECK_INTERVAL = 3600  # 1 hour
